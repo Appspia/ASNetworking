@@ -1,3 +1,3 @@
 # ASNetworking
 
-A description of this package.
+Simple Swift Networking Package
