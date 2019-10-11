@@ -46,6 +46,15 @@ func testApi() {
 
 ```
 
+## Installation
+To integrate using Apple's Swift package manager, add the following as a dependency to your Package.swift:
+
+```ruby
+dependencies: [
+    .package(url: "https://github.com/Appspia/ASNetworking.git", .upToNextMinor(from: "1.0.0"))
+]
+```
+
 ## Author
 
 Appspia, appspia@gmail.com
