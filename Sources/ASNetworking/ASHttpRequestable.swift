@@ -31,8 +31,8 @@ public enum ASHttpResult<T: Codable> {
 
 extension ASHttpResult: CustomStringConvertible {
     public var description: String {
-        var description = "---------------- HTTP RESULT ----------------\n"
-        
+        var description = "--------------- HTTP RESULT -----------------\n"
+    
         switch self {
         case .success(let item):
             description += "RESULT: succeed\n"
@@ -52,9 +52,25 @@ extension ASHttpResult: CustomStringConvertible {
                 statusString = String(response.statusCode)
             }
             
-            var errorString = "nil"
-            if let error = error {
-                errorString = error.localizedDescription
+            var errorString = error?.localizedDescription ?? "nil"
+            if let decodingError = error as? DecodingError {
+                var decodingErrorContext: DecodingError.Context?
+                
+                switch decodingError {
+                case .typeMismatch(_, let context):
+                    decodingErrorContext = context
+                case .valueNotFound(_, let context):
+                    decodingErrorContext = context
+                case .keyNotFound(_, let context):
+                    decodingErrorContext = context
+                case .dataCorrupted(let context):
+                    decodingErrorContext = context
+                @unknown default: break
+                }
+                
+                if let context = decodingErrorContext {
+                    errorString += " \(context.codingPath.debugDescription) \(context.debugDescription)"
+                }
             }
             
             var dataString = "nil"
@@ -78,8 +94,8 @@ extension ASHttpResult: CustomStringConvertible {
 public final class ASHttpResponse<T: Codable> {
     public typealias ASHttpResultHandler = (ASHttpResult<T>) -> Swift.Void
     
-    public var sessionTask: URLSessionTask?
     var request: URLRequest?
+    var sessionTask: URLSessionTask?
     var resultHandler: ASHttpResultHandler?
     var validStatusCodes: ClosedRange<Int> = 200...299
     var logEnabled = false
@@ -110,27 +126,28 @@ extension ASHttpRequestable {
         let httpResponse = ASHttpResponse<T>()
         httpResponse.request = request
         httpResponse.sessionTask = session.dataTask(with: request) { (data: Data?, response: URLResponse?, error: Error?) in
-            // Log
-            if httpResponse.logEnabled {
-                self.printLog(request: request, data: data, response: response, error: error)
-            }
-            
-            guard let resultHandler = httpResponse.resultHandler else {
-                return
-            }
-            
             guard let httpURLResponse = response as? HTTPURLResponse, (httpResponse.validStatusCodes.contains(httpURLResponse.statusCode)), error == nil else {
                 DispatchQueue.main.async {
-                    resultHandler(.failure(data, response as? HTTPURLResponse, error))
+                    if httpResponse.logEnabled || ASNetworkManager.shared.isErrorLoggig {
+                        self.logPrinting(request: request, data: data, response: response, error: error)
+                    }
+                    httpResponse.resultHandler?(.failure(data, response as? HTTPURLResponse, error))
                 }
                 return
             }
             
             guard let data = data else {
                 DispatchQueue.main.async {
-                    resultHandler(.failure(nil, httpURLResponse, error))
+                    if httpResponse.logEnabled || ASNetworkManager.shared.isErrorLoggig {
+                        self.logPrinting(request: request, data: data, response: response, error: error)
+                    }
+                    httpResponse.resultHandler?(.failure(nil, httpURLResponse, error))
                 }
                 return
+            }
+            
+            if httpResponse.logEnabled {
+                self.logPrinting(request: request, data: data, response: response, error: error)
             }
             
             var error = error
@@ -153,51 +170,82 @@ extension ASHttpRequestable {
             
             if anyData != nil, let anyData = anyData as? T {
                 DispatchQueue.main.async {
-                    resultHandler(.success(anyData))
+                    httpResponse.resultHandler?(.success(anyData))
                 }
             } else {
                 DispatchQueue.main.async {
-                    resultHandler(.failure(data, httpURLResponse, error))
+                    if httpResponse.logEnabled || ASNetworkManager.shared.isErrorLoggig {
+                        self.logPrinting(request: request, data: data, response: response, error: error)
+                    }
+                    httpResponse.resultHandler?(.failure(data, httpURLResponse, error))
                 }
             }
         }
         return httpResponse
     }
     
-    func printLog(request: URLRequest, data: Data?, response: URLResponse?, error: Error?) {
+    func logPrinting(request: URLRequest, data: Data?, response: URLResponse?, error: Error?) {
         let urlString = request.url?.absoluteString ?? "nil"
-        let headerString = request.allHTTPHeaderFields?.description ?? "nil"
-        
-        var bodyString = "nil"
-        if let httpBody = request.httpBody {
-            bodyString = String(data: httpBody, encoding: .utf8) ?? "nil"
-        }
+        let headerString = jsonDicToPrettyString(request.allHTTPHeaderFields) ?? "nil"
+        let bodyString = dataToPrettyString(request.httpBody) ?? "nil"
         
         var statusString = "nil"
+        var httpResponseHeader = "nil"
         if let httpURLResponse = response as? HTTPURLResponse {
             statusString = String(httpURLResponse.statusCode)
+            httpResponseHeader = jsonDicToPrettyString(httpURLResponse.allHeaderFields) ?? "nil"
         }
-        
-        var errorString = "nil"
-        if let error = error {
-            errorString = error.localizedDescription
+      
+        var errorString = error?.localizedDescription ?? "nil"
+        if let decodingError = error as? DecodingError {
+            var decodingErrorContext: DecodingError.Context?
+            
+            switch decodingError {
+            case .typeMismatch(_, let context):
+                decodingErrorContext = context
+            case .valueNotFound(_, let context):
+                decodingErrorContext = context
+            case .keyNotFound(_, let context):
+                decodingErrorContext = context
+            case .dataCorrupted(let context):
+                decodingErrorContext = context
+            @unknown default: break
+            }
+            
+            if let context = decodingErrorContext {
+                errorString += " \(context.codingPath.debugDescription) \(context.debugDescription)"
+            }
         }
-        
-        var dataString = "nil"
-        if let data = data {
-            dataString = String(data: data, encoding: .utf8) ?? "nil"
-        }
-        
+
+        let dataString = dataToPrettyString(data) ?? "nil"
+
         print("""
-            --------------- HTTP REQUEST ----------------
-            URL: \(urlString)
-            HEADER: \(headerString)
-            BODY: \(bodyString)
-            --------------- HTTP RESPONSE ---------------
-            STATUS: \(statusString)
-            ERROR: \(errorString)
-            DATA: \(dataString)
-            ---------------------------------------------
-            """)
+        --------------- HTTP REQUEST ----------------
+        URL: \(urlString)
+        HEADER: \(headerString)
+        BODY: \(bodyString)
+        --------------- HTTP RESPONSE ---------------
+        URL: \(urlString)
+        HEADER: \(httpResponseHeader)
+        STATUS: \(statusString)
+        ERROR: \(errorString)
+        DATA: \(dataString)
+        ---------------------------------------------
+        """)
+    }
+    
+    func jsonDicToPrettyString(_ jsonDic: Any?) -> String? {
+        guard let jsonDic = jsonDic else { return nil }
+        guard let data = try? JSONSerialization.data(withJSONObject: jsonDic, options: .prettyPrinted) else { return nil }
+        guard let dataString = String(data: data, encoding: .utf8) else { return nil }
+        return dataString
+    }
+    
+    func dataToPrettyString(_ data: Data?) -> String? {
+        guard let data = data else { return nil }
+        guard let jsonFoundationObj = try? JSONSerialization.jsonObject(with: data, options: .allowFragments) else { return String(data: data, encoding: .utf8) }
+        guard let jsonDataFieldWithEmptyCharacters = try? JSONSerialization.data(withJSONObject: jsonFoundationObj, options: .prettyPrinted) else { return nil }
+        guard let dataString = String(data: jsonDataFieldWithEmptyCharacters, encoding: .utf8) else { return nil }
+        return dataString
     }
 }

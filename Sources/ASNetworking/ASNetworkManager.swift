@@ -27,6 +27,7 @@ import UIKit
 final class ASNetworkManager: NSObject {
     static let shared = ASNetworkManager()
     var backgroundSessionCompletionHandler: (() -> Swift.Void)?
+    var isErrorLoggig: Bool = false
     
     lazy var reachability: ASReachability = {
         let reachability = ASReachability(host: nil)

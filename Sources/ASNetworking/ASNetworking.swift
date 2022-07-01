@@ -40,6 +40,10 @@ extension ASNetworking {
     public func setReachabilityListener(listener: @escaping (ASReachabilityStatus) -> Void) {
         ASNetworkManager.shared.reachability.listener = listener
     }
+    
+    public func setErrorLogging(isLogging: Bool) {
+        ASNetworkManager.shared.isErrorLoggig = isLogging
+    }
 }
 
 // MARK: - Http
