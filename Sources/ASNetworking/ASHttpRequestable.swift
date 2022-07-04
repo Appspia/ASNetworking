@@ -94,8 +94,8 @@ extension ASHttpResult: CustomStringConvertible {
 public final class ASHttpResponse<T: Codable> {
     public typealias ASHttpResultHandler = (ASHttpResult<T>) -> Swift.Void
     
+    public var sessionTask: URLSessionTask?
     var request: URLRequest?
-    var sessionTask: URLSessionTask?
     var resultHandler: ASHttpResultHandler?
     var validStatusCodes: ClosedRange<Int> = 200...299
     var logEnabled = false
