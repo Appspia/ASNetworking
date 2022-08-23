@@ -146,10 +146,6 @@ extension ASHttpRequestable {
                 return
             }
             
-            if httpResponse.logEnabled {
-                self.logPrinting(request: request, data: data, response: response, error: error)
-            }
-            
             var error = error
             var anyData: Any?
             
@@ -168,12 +164,13 @@ extension ASHttpRequestable {
                 }
             }
             
-            if anyData != nil, let anyData = anyData as? T {
-                DispatchQueue.main.async {
+            DispatchQueue.main.async {
+                if anyData != nil, let anyData = anyData as? T {
+                    if httpResponse.logEnabled {
+                        self.logPrinting(request: request, data: data, response: response, error: error)
+                    }
                     httpResponse.resultHandler?(.success(anyData))
-                }
-            } else {
-                DispatchQueue.main.async {
+                } else {
                     if httpResponse.logEnabled || ASNetworkManager.shared.isErrorLoggig {
                         self.logPrinting(request: request, data: data, response: response, error: error)
                     }
