@@ -76,12 +76,12 @@ public enum ASFormDataType {
 }
 
 public struct ASFormDataItem {
-    var type: ASFormDataType
-    var name: String
-    var data: Data
-    var fileName: String
+    public var type: ASFormDataType
+    public var name: String
+    public var data: Data
+    public var fileName: String
     
-    init(type: ASFormDataType, name: String, data: Data, fileName: String?) {
+    public init(type: ASFormDataType, name: String, data: Data, fileName: String?) {
         self.type = type
         self.name = name
         self.data = data
