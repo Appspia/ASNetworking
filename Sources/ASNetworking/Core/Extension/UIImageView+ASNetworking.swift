@@ -23,7 +23,6 @@
 //
 
 import UIKit
-import ObjectiveC
 
 public typealias ASImageUrlHandler = (_ image: UIImage?, _ isCache: Bool) -> Swift.Void
 var ASImageViewAssociateKey: UInt8 = 0

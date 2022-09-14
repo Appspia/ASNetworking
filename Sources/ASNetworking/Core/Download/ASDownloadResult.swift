@@ -1,6 +1,6 @@
 //
-//  ASUploadRequest.swift
-//
+//  ASDownloadResult.swift
+//  
 //  Copyright (c) 2016-2018 Appspia Studio. All rights reserved.
 //
 //  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -22,9 +22,9 @@
 //  THE SOFTWARE.
 //
 
-import UIKit
+import Foundation
 
-public final class ASUploadResult {
+public final class ASDownloadResult {
     typealias UpdatedHandler = (_ currentSize: Int64, _ totalSize: Int64) -> Swift.Void
     typealias CompletedHandler = (_ error: Error?) -> Swift.Void
     
@@ -33,23 +33,14 @@ public final class ASUploadResult {
     var completedHandler: CompletedHandler?
     
     @discardableResult
-    func updatedHandler(handler: UpdatedHandler?) -> ASUploadResult {
+    func updatedHandler(handler: UpdatedHandler?) -> ASDownloadResult {
         self.updatedHandler = handler
         return self
     }
     
     @discardableResult
-    func completedHandler(handler: CompletedHandler?) -> ASUploadResult {
+    func completedHandler(handler: CompletedHandler?) -> ASDownloadResult {
         self.completedHandler = handler
         return self
-    }
-}
-
-final class ASUploadRequest {
-    var result: ASUploadResult
-
-    init(session: URLSession, request: URLRequest, filePath: String) {
-        self.result = ASUploadResult()
-        self.result.sessionTask = session.uploadTask(with: request, fromFile: URL(fileURLWithPath: filePath))
     }
 }

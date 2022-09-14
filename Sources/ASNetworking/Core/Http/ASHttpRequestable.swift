@@ -22,102 +22,7 @@
 //  THE SOFTWARE.
 //
 
-import UIKit
-
-public enum ASHttpResult<T: Codable> {
-    case success(T)
-    case failure(Data?, HTTPURLResponse?, Error?)
-}
-
-extension ASHttpResult: CustomStringConvertible {
-    public var description: String {
-        var description = "--------------- HTTP RESULT -----------------\n"
-    
-        switch self {
-        case .success(let item):
-            description += "RESULT: succeed\n"
-            if let data = item as? Data {
-                description += String(data: data, encoding: .utf8) ?? ""
-            } else if let string = item as? String {
-                description += string
-            } else {
-                let encoder = JSONEncoder()
-                if let data = try? encoder.encode(item) {
-                    description += String(data: data, encoding: .utf8) ?? ""
-                }
-            }
-        case .failure(let data, let response, let error):
-            var statusString = "nil"
-            if let response = response {
-                statusString = String(response.statusCode)
-            }
-            
-            var errorString = error?.localizedDescription ?? "nil"
-            if let decodingError = error as? DecodingError {
-                var decodingErrorContext: DecodingError.Context?
-                
-                switch decodingError {
-                case .typeMismatch(_, let context):
-                    decodingErrorContext = context
-                case .valueNotFound(_, let context):
-                    decodingErrorContext = context
-                case .keyNotFound(_, let context):
-                    decodingErrorContext = context
-                case .dataCorrupted(let context):
-                    decodingErrorContext = context
-                @unknown default: break
-                }
-                
-                if let context = decodingErrorContext {
-                    errorString += " \(context.codingPath.debugDescription) \(context.debugDescription)"
-                }
-            }
-            
-            var dataString = "nil"
-            if let data = data {
-                dataString = String(data: data, encoding: .utf8) ?? "nil"
-            }
-            
-            description += """
-            RESULT: failure
-            STATUS: \(statusString)
-            ERROR: \(errorString)
-            DATA: \(dataString)
-            """
-        }
-        
-        description += "\n---------------------------------------------"
-        return description
-    }
-}
-
-public final class ASHttpResponse<T: Codable> {
-    public typealias ASHttpResultHandler = (ASHttpResult<T>) -> Swift.Void
-    
-    public var sessionTask: URLSessionTask?
-    var request: URLRequest?
-    var resultHandler: ASHttpResultHandler?
-    var validStatusCodes: ClosedRange<Int> = 200...299
-    var logEnabled = false
-    
-    @discardableResult
-    public func response(handler: ASHttpResultHandler?) -> Self {
-        resultHandler = handler
-        return self
-    }
-    
-    @discardableResult
-    public func validate(statusCodes: ClosedRange<Int>) -> Self {
-        validStatusCodes = statusCodes
-        return self
-    }
-    
-    @discardableResult
-    public func log() -> Self {
-        logEnabled = true
-        return self
-    }
-}
+import Foundation
 
 public protocol ASHttpRequestable {}
 
@@ -125,11 +30,18 @@ extension ASHttpRequestable {
     func httpRequest<T: Decodable>(session: URLSession, request: URLRequest) -> ASHttpResponse<T> {
         let httpResponse = ASHttpResponse<T>()
         httpResponse.request = request
+        
+        let start = Date()
+        var time: String?
         httpResponse.sessionTask = session.dataTask(with: request) { (data: Data?, response: URLResponse?, error: Error?) in
+            if httpResponse.logEnabled || ASNetworkManager.shared.globalLoggingMode != .none {
+                time = String(format: "%.3f", Date().timeIntervalSince(start))
+            }
+            
             guard let httpURLResponse = response as? HTTPURLResponse, (httpResponse.validStatusCodes.contains(httpURLResponse.statusCode)), error == nil else {
                 DispatchQueue.main.async {
-                    if httpResponse.logEnabled || ASNetworkManager.shared.isErrorLoggig {
-                        self.logPrinting(request: request, data: data, response: response, error: error)
+                    if httpResponse.logEnabled || ASNetworkManager.shared.globalLoggingMode != .none {
+                        self.logPrinting(request: request, data: data, response: response, error: error, time: time)
                     }
                     httpResponse.resultHandler?(.failure(data, response as? HTTPURLResponse, error))
                 }
@@ -138,8 +50,8 @@ extension ASHttpRequestable {
             
             guard let data = data else {
                 DispatchQueue.main.async {
-                    if httpResponse.logEnabled || ASNetworkManager.shared.isErrorLoggig {
-                        self.logPrinting(request: request, data: data, response: response, error: error)
+                    if httpResponse.logEnabled || ASNetworkManager.shared.globalLoggingMode != .none {
+                        self.logPrinting(request: request, data: data, response: response, error: error, time: time)
                     }
                     httpResponse.resultHandler?(.failure(nil, httpURLResponse, error))
                 }
@@ -166,13 +78,13 @@ extension ASHttpRequestable {
             
             DispatchQueue.main.async {
                 if anyData != nil, let anyData = anyData as? T {
-                    if httpResponse.logEnabled {
-                        self.logPrinting(request: request, data: data, response: response, error: error)
+                    if httpResponse.logEnabled || ASNetworkManager.shared.globalLoggingMode == .all {
+                        self.logPrinting(request: request, data: data, response: response, error: error, time: time)
                     }
                     httpResponse.resultHandler?(.success(anyData))
                 } else {
-                    if httpResponse.logEnabled || ASNetworkManager.shared.isErrorLoggig {
-                        self.logPrinting(request: request, data: data, response: response, error: error)
+                    if httpResponse.logEnabled || ASNetworkManager.shared.globalLoggingMode != .none {
+                        self.logPrinting(request: request, data: data, response: response, error: error, time: time)
                     }
                     httpResponse.resultHandler?(.failure(data, httpURLResponse, error))
                 }
@@ -181,7 +93,7 @@ extension ASHttpRequestable {
         return httpResponse
     }
     
-    func logPrinting(request: URLRequest, data: Data?, response: URLResponse?, error: Error?) {
+    func logPrinting(request: URLRequest, data: Data?, response: URLResponse?, error: Error?, time: String?) {
         let urlString = request.url?.absoluteString ?? "nil"
         let headerString = jsonDicToPrettyString(request.allHTTPHeaderFields) ?? "nil"
         let bodyString = dataToPrettyString(request.httpBody) ?? "nil"
@@ -227,6 +139,7 @@ extension ASHttpRequestable {
         STATUS: \(statusString)
         ERROR: \(errorString)
         DATA: \(dataString)
+        TIME: \(time ?? "")
         ---------------------------------------------
         """)
     }

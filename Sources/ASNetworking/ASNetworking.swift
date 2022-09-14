@@ -24,6 +24,12 @@
 
 import Foundation
 
+public enum ASLoggingMode {
+    case none
+    case error
+    case all
+}
+
 public protocol ASNetworking: ASHttpRequestable, ASCacheRequestable {}
 
 // MARK: - Common
@@ -41,8 +47,8 @@ extension ASNetworking {
         ASNetworkManager.shared.reachability.listener = listener
     }
     
-    public func setErrorLogging(isLogging: Bool) {
-        ASNetworkManager.shared.isErrorLoggig = isLogging
+    public func setGlobalLoggingMode(_ loggingMode: ASLoggingMode) {
+        ASNetworkManager.shared.globalLoggingMode = loggingMode
     }
 }
 
