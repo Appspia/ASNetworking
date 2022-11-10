@@ -56,7 +56,8 @@ extension ASNetworking {
 
 extension ASNetworking {
     public var httpURLSession: URLSession {
-        return ASNetworkManager.shared.httpURLSession
+        get { ASNetworkManager.shared.httpURLSession }
+        nonmutating set { ASNetworkManager.shared.httpURLSession = newValue }
     }
     
     public func httpRequest<T: Codable>(_ request: URLRequest) -> ASHttpResponse<T> {
@@ -75,7 +76,8 @@ extension ASNetworking {
 
 extension ASNetworking {
     public var cacheURLSession: URLSession {
-        return ASNetworkManager.shared.cacheURLSession
+        get { ASNetworkManager.shared.cacheURLSession }
+        nonmutating set { ASNetworkManager.shared.cacheURLSession = newValue }
     }
     
     public func cacheRequest(_ request: URLRequest) -> ASCacheResponse {
@@ -98,7 +100,8 @@ extension ASNetworking {
 
 extension ASNetworking {
     public var downloadURLSession: URLSession {
-        return ASNetworkManager.shared.downloadURLSession
+        get { ASNetworkManager.shared.downloadURLSession }
+        nonmutating set { ASNetworkManager.shared.downloadURLSession = newValue }
     }
     
     public func downloadRequest(_ request: URLRequest, filePath: String) -> ASDownloadResult {
@@ -120,7 +123,8 @@ extension ASNetworking {
 
 extension ASNetworking {
     public var uploadURLSession: URLSession {
-        return ASNetworkManager.shared.uploadURLSession
+        get { ASNetworkManager.shared.uploadURLSession }
+        nonmutating set { ASNetworkManager.shared.uploadURLSession = newValue }
     }
     
     public func uploadRequest(_ request: URLRequest, filePath: String) -> ASUploadResult {
